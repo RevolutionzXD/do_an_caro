@@ -1,0 +1,16 @@
+# VisualStudio
+.vs/
+*.suo
+*.user
+*.sln.doc
+*_i.c
+*_p.c
+
+# Build results
+Debug/
+Release/
+x64/
+Win32/
+build/
+bin/
+obj/
