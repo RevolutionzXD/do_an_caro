@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ﻿#include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
 #include <fstream>
@@ -532,3 +533,13 @@ int main() {
 
     return 0;
 }
+=======
+#include <iostream>
+
+using namespace std;
+
+int main() {
+    cout << "Hello hihihaha";
+    return 0;
+}
+>>>>>>> 84bab4b221256246f70305cc9645111731f79cbc
