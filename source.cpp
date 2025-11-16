@@ -26,6 +26,10 @@ int cnt_X = 0;
 int cnt_O = 0;
 int win_X = 0;
 int win_O = 0;
+int winPosX = 0; // vị trí thắng (hàng hoặc cột bắt đầu)
+int winPosY = 0;
+int winDirX = 0; // hướng thắng (0: ngang, 1: dọc, 2: chéo \, 3: chéo /)
+int winDirY = 0;
 string Player1Name;
 string Player2Name;
 
@@ -116,8 +120,13 @@ int TestBoard()
                     else
                         break;
                 }
-                if (cnt == 5)
+                if (cnt == 5) {
+                    winPosX = i;
+                    winPosY = j;
+                    winDirX = dx[k];
+                    winDirY = dy[k];
                     return c; //-1 hoặc 1
+                }
             }
         }
     if (isFull())
@@ -259,7 +268,7 @@ void DrawEnergyWaves(RenderWindow& win)
         big.setPosition(w.center);
         Uint8 alphaFill = (Uint8)(80 * (1.f - t));
         big.setFillColor(Color(w.color.r, w.color.g, w.color.b, alphaFill));
-        win.draw(big);
+        //win.draw(big);
 
         float band = CELL * 0.5f;
         CircleShape ring(radius);
@@ -269,7 +278,7 @@ void DrawEnergyWaves(RenderWindow& win)
         ring.setFillColor(Color::Transparent);
         ring.setOutlineColor(Color(w.color.r, w.color.g, w.color.b, alphaRing));
         ring.setOutlineThickness(4.f * (1.f - t));
-        win.draw(ring);
+        //win.draw(ring);
 
         float lower = radius - band, upper = radius;
         for (int r = 0; r < BOARD_SIZE; ++r)
@@ -442,6 +451,24 @@ void DrawPlayerInfo(RenderWindow& win)
     }
 }
 
+void DrawWinLine(RenderWindow& win, int startRow, int startCol, int dirX, int dirY)
+{
+    Vector2f startPos = cellTopLeft(startRow, startCol) + Vector2f(CELL / 2.f, CELL / 2.f);
+    Vector2f endPos = cellTopLeft(startRow + dirX * 4, startCol + dirY * 4)
+        + Vector2f(CELL / 2.f, CELL / 2.f);
+    float thickness = 6.f;
+    Vector2f diff = endPos - startPos;
+    float length = sqrt(diff.x * diff.x + diff.y * diff.y);
+
+    RectangleShape line(Vector2f(length, thickness));
+    line.setFillColor(Color::Green);
+    line.setPosition(startPos);
+    float angle = atan2(diff.y, diff.x) * 180.f / 3.14159265f;
+    line.setRotation(angle);
+
+    win.draw(line);
+}
+
 void DrawAll(RenderWindow& win)
 {
     win.clear(Color::White);
@@ -457,7 +484,7 @@ void DrawAll(RenderWindow& win)
     win.display();
 }
 
-void SpawnWave(int row, int col, Color color, float duration = 0.8f, float radiusScale = 0.6f)
+void SpawnWave(int row, int col, Color color, float duration = 1.2f, float radiusScale = 0.6f)
 {
     Wave w;
     // tâm wave = center ô
@@ -505,7 +532,7 @@ string InputDialog(RenderWindow& win, const String& prompt, int digitlim = MAX_L
                     if (input.getSize() < digitlim)
                     {
                         char ch = static_cast<char>(unicode);
-                        const string forbidden = "\\/:*?\"<>|~`!@#$%^&*(){}[];',.+=";
+                        const string forbidden = "\\/:*?\"<>|~`!@#$%^&*(){}[];',.+= ";
                         if (forbidden.find(ch) == string::npos)
                             input += ch;
                     }
@@ -539,6 +566,12 @@ string InputDialog(RenderWindow& win, const String& prompt, int digitlim = MAX_L
         DrawMarks(win);
         
         // dialog box
+        RectangleShape blur(Vector2f(WIN_W, WIN_H));
+        blur.setFillColor(Color(250, 250, 250, 200));
+        //blur.setOutlineThickness(0.f);
+        blur.setPosition(0.f, 0.f);
+        win.draw(blur);
+
         RectangleShape dialog(Vector2f(600.f, 120.f));
         dialog.setFillColor(Color(230, 230, 230));
         dialog.setOutlineColor(Color::Black);
@@ -600,8 +633,16 @@ int ShowMessageYesNo(RenderWindow& win, const String& msg)
         DrawUI(win);
         DrawGrid(win);
         DrawMarks(win);
+        if (TestBoard() == -1 || TestBoard() == 1)
+            DrawWinLine(win, winPosX, winPosY, winDirX, winDirY);
 
         // dialog
+        RectangleShape blur(Vector2f(WIN_W, WIN_H));
+        blur.setFillColor(Color(250, 250, 250, 200));
+        //blur.setOutlineThickness(0.f);
+        blur.setPosition(0.f, 0.f);
+        win.draw(blur);
+
         RectangleShape dialog(Vector2f(520.f, 100.f));
         dialog.setFillColor(Color(240, 240, 240));
         dialog.setOutlineColor(Color::Black);
@@ -648,6 +689,12 @@ void ShowMessageOK(RenderWindow& win, const String& msg)
         DrawGrid(win);
         DrawMarks(win);
 
+        RectangleShape blur(Vector2f(WIN_W, WIN_H));
+        blur.setFillColor(Color(250, 250, 250, 200));
+        //blur.setOutlineThickness(0.f);
+        blur.setPosition(0.f, 0.f);
+        win.draw(blur);
+
         RectangleShape dialog(Vector2f(520.f, 80.f));
         dialog.setFillColor(Color(240, 240, 240));
         dialog.setOutlineColor(Color::Black);
@@ -673,7 +720,7 @@ void ShowMessageOK(RenderWindow& win, const String& msg)
 void SaveGame(RenderWindow& win)
 {
     string name = InputDialog(win, L"Nhập tên file để lưu (không kèm .txt):");
-    if (name.empty())
+    if (name.empty() || name == "__ESC__")
     {
         ShowMessageOK(win, L"Hủy lưu.");
         return;
@@ -691,6 +738,9 @@ void SaveGame(RenderWindow& win)
             f << _TABLE[i][j].c << " ";
         f << "\n";
     }
+    f << Player1Name << "  " << Player2Name << "\n";
+    f << cnt_X << " " << cnt_O << "\n";
+    f << win_X << " " << win_O << "\n";
     f.close();
     ShowMessageOK(win, L"Đã lưu " + (String)name + L".txt");
 }
@@ -698,7 +748,7 @@ void SaveGame(RenderWindow& win)
 void LoadGame(RenderWindow& win)
 {
     string name = InputDialog(win, L"Nhập tên file để tải (không kèm .txt):");
-    if (name.empty())
+    if (name.empty() || name == "__ESC__")
     {
         ShowMessageOK(win, L"Hủy tải.");
         return;
@@ -713,6 +763,9 @@ void LoadGame(RenderWindow& win)
     for (int i = 0; i < BOARD_SIZE; i++)
         for (int j = 0; j < BOARD_SIZE; j++)
             f >> _TABLE[i][j].c;
+    f >> Player1Name >> Player2Name;
+    f >> cnt_X >> cnt_O;
+    f >> win_X >> win_O;
     f.close();
     ShowMessageOK(win, L"Đã tải file " + (String)name + L".txt");
 }
@@ -801,28 +854,41 @@ void HandleMenuInput(Event& ev) {
 int main()
 {
     // load font
-    if (!gFont.loadFromFile("fonts/patrickHand.ttf"))
+    if (!gFont.loadFromFile("assets/fonts/patrickHand.ttf"))
     {
         cerr << "Khong tim thay font 'patrickHand.ttf'. Vui long dat file trong thu muc chay.\n";
         // ta vẫn thử dùng SFML default? (không có) -> thoát
         return -1;
     }
-    if (!gMenuFont.loadFromFile("fonts/DragonHunter.otf"))
+    if (!gMenuFont.loadFromFile("assets/fonts/DragonHunter.otf"))
     {
         cerr << "Khong tim thay font 'DragonHunter'. Vui long dat file trong thu muc chay.\n";
         return -1;
     }
-    if (!gUIFont.loadFromFile("fonts/dcmeu.otf"))
+    if (!gUIFont.loadFromFile("assets/fonts/dcmeu.otf"))
     {
         cerr << "Khong tim thay font 'dcmeu'. Vui long dat file trong thu muc chay.\n";
         return -1;
 	}
 
-    ResetData();
+    
 
     Clock frameClock;
     RenderWindow window(VideoMode((unsigned)WIN_W, (unsigned)WIN_H), "Caro-beta", Style::Titlebar | Style::Close);
     window.setFramerateLimit(60);
+
+    ResetData();
+
+    Image icon;
+    if (!icon.loadFromFile("assets/image/icon.png"))
+    {
+        cout << "Error loading icon\n";
+		return -1;
+    }
+    else
+    {
+        window.setIcon(icon.getSize().x, icon.getSize().y, icon.getPixelsPtr());
+    }
 
     DrawAll(window);
 
@@ -852,7 +918,7 @@ int main()
                 {
                     // Nhập Player 1 (không cho rỗng)
                     do {
-                        Player1Name = InputDialog(window, L"Nhập tên Player 1 (X): ", 7);
+                        Player1Name = InputDialog(window, L"Nhập tên Người chơi 1 (X): ", 7);
                         if (Player1Name == "__ESC__")
                         {
                             int yn = ShowMessageYesNo(window, L"Bạn có muốn thoát game?");
@@ -867,7 +933,7 @@ int main()
 
                     // Nhập Player 2 (không cho rỗng, không được trùng P1)
                     do {
-                        Player2Name = InputDialog(window, L"Nhập tên Player 2 (O): ", 7);
+                        Player2Name = InputDialog(window, L"Nhập tên Người chơi 2 (O): ", 7);
                         if (Player2Name == "__ESC__")
                         {
                             int yn = ShowMessageYesNo(window, L"Bạn có muốn thoát game?");
@@ -953,10 +1019,15 @@ int main()
                         if (state != 2)
                         {
                             String msg;
-                            if (state == -1)
+                            if (state == -1) {
                                 msg = L"Người chơi X đã thắng!";
-                            else if (state == 1)
+                                win_X++;
+                            }
+                            else if (state == 1) {
                                 msg = L"Người chơi O đã thắng!";
+								win_O++;
+                            }
+
                             else
                                 msg = L"Hai bên hoà nhau!";
                             int cont = ShowMessageYesNo(window, msg + L"  Nhấn Y để chơi tiếp?");
@@ -975,7 +1046,7 @@ int main()
                         }
                         // nếu hợp lệ thì đổi lượt
                         if (check != 0) {
-                            //SpawnWave(selRow, selCol, check == -1 ? Color(0, 0, 255) : Color(255, 0, 0)); // sóng
+                            SpawnWave(selRow, selCol, check == -1 ? Color(0, 0, 255) : Color(255, 0, 0)); // sóng
                             if (_TURN) cnt_X++;
                             else cnt_O++;
                             _TURN = !_TURN;
