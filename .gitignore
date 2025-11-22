@@ -5,6 +5,7 @@
 *.sln.doc
 *_i.c
 *_p.c
+.vscode
 
 # Build results
 Debug/
